@@ -1,0 +1,40 @@
+## Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+## Visual Studio
+.vs/
+*.user
+*.suo
+
+## Rider
+.idea/
+
+## User-specific files
+*.rsuser
+
+## NuGet
+*.nupkg
+**/packages/*
+!**/packages/build/
+
+## Test results
+TestResults/
+*.trx
+
+## Docker
+.docker/
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Environment
+.env
+*.env

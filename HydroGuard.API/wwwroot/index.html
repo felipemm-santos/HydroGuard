@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <!-- Meta tags para responsividade e charset -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HydroGuard - Monitoramento de Água ESG</title>
+  <!-- Link ao CSS customizado -->
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <!-- ===== NAVBAR ===== -->
+  <nav class="navbar" id="navbar" style="display:none;">
+    <h1>💧 Hydro<span>Guard</span></h1>
+    <ul class="nav-links">
+      <li><a href="#" data-section="dashboard" class="nav-link active">Dashboard</a></li>
+      <li><a href="#" data-section="medidores" class="nav-link">Medidores</a></li>
+      <li><a href="#" data-section="consumos" class="nav-link">Consumos</a></li>
+      <li><a href="#" data-section="alertas" class="nav-link">Alertas</a></li>
+      <li><a href="#" id="btn-logout" class="nav-link">Sair</a></li>
+    </ul>
+  </nav>
+
+  <!-- ===== TELA DE LOGIN ===== -->
+  <div id="login-section" class="visible">
+    <div class="login-container">
+      <div class="card">
+        <h2>💧 HydroGuard</h2>
+        <p>Monitoramento inteligente de consumo de água - ESG</p>
+        <div id="login-message"></div>
+        <form id="login-form">
+          <div class="form-group">
+            <label for="username">Usuário</label>
+            <input type="text" id="username" placeholder="admin" value="admin" required>
+          </div>
+          <div class="form-group">
+            <label for="password">Senha</label>
+            <input type="password" id="password" placeholder="admin123" value="admin123" required>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width:100%;">Entrar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== CONTEÚDO PRINCIPAL (após login) ===== -->
+  <div id="app-content" class="container">
+
+    <!-- Dashboard ESG -->
+    <div id="section-dashboard" class="section active">
+      <h2 style="margin-bottom:1rem;color:var(--primary);">Dashboard ESG</h2>
+      <div class="dashboard-grid" id="dashboard-indicators">
+        <!-- Indicadores serão inseridos via JavaScript -->
+      </div>
+      <div class="card">
+        <h2>Relatório Gerencial</h2>
+        <div id="relatorio-content">Carregando...</div>
+      </div>
+    </div>
+
+    <!-- Listagem e Cadastro de Medidores -->
+    <div id="section-medidores" class="section">
+      <div class="card">
+        <h2>Cadastrar Medidor</h2>
+        <div id="medidor-message"></div>
+        <form id="medidor-form">
+          <div class="form-group">
+            <label for="medidor-nome">Nome</label>
+            <input type="text" id="medidor-nome" placeholder="Medidor Cozinha" required>
+          </div>
+          <div class="form-group">
+            <label for="medidor-serial">Serial</label>
+            <input type="text" id="medidor-serial" placeholder="HG123456" required>
+          </div>
+          <div class="form-group">
+            <label for="medidor-localizacao">Localização</label>
+            <input type="text" id="medidor-localizacao" placeholder="Bloco A" required>
+          </div>
+          <button type="submit" class="btn btn-primary">Cadastrar Medidor</button>
+        </form>
+      </div>
+      <div class="card">
+        <h2>Medidores Cadastrados</h2>
+        <div id="medidores-list">Carregando...</div>
+      </div>
+    </div>
+
+    <!-- Registro e Histórico de Consumos -->
+    <div id="section-consumos" class="section">
+      <div class="card">
+        <h2>Registrar Consumo</h2>
+        <div id="consumo-message"></div>
+        <form id="consumo-form">
+          <div class="form-group">
+            <label for="consumo-medidor">Medidor</label>
+            <select id="consumo-medidor" required>
+              <option value="">Selecione um medidor</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="consumo-litros">Litros Consumidos</label>
+            <input type="number" id="consumo-litros" step="0.1" min="0" placeholder="350.5" required>
+          </div>
+          <button type="submit" class="btn btn-primary">Registrar Consumo</button>
+        </form>
+      </div>
+      <div class="card">
+        <h2>Histórico de Consumos</h2>
+        <div id="consumos-list">Carregando...</div>
+      </div>
+    </div>
+
+    <!-- Alertas de Vazamento -->
+    <div id="section-alertas" class="section">
+      <div class="card">
+        <h2>Alertas de Vazamento</h2>
+        <p style="color:var(--text-light);margin-bottom:1rem;">
+          Detecção automática: consumo atual &gt; média histórica + 40%
+        </p>
+        <button id="btn-detectar" class="btn btn-danger" style="margin-bottom:1rem;">Detectar Vazamentos</button>
+        <div id="alertas-list">Clique em "Detectar Vazamentos" para analisar.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Script principal da aplicação -->
+  <script src="/js/app.js"></script>
+</body>
+</html>
