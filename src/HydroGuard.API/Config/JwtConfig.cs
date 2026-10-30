@@ -16,9 +16,12 @@ public static class JwtConfig
   public static IServiceCollection AddJwtAuthentication(this IServiceCollection services, IConfiguration configuration)
   {
     // Lê configurações JWT do appsettings.json
-    var jwtKey = configuration["Jwt:Key"] ?? "HydroGuardSecretKey2026FIAP!";
+    var jwtKey = configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key não configurada.");
     var jwtIssuer = configuration["Jwt:Issuer"] ?? "HydroGuard";
     var jwtAudience = configuration["Jwt:Audience"] ?? "HydroGuardUsers";
+
+    if (Encoding.UTF8.GetByteCount(jwtKey) < 32)
+      throw new InvalidOperationException("Jwt:Key deve ter pelo menos 32 bytes.");
 
     // Configura autenticação JWT Bearer
     services.AddAuthentication(options =>

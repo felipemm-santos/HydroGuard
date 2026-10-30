@@ -51,7 +51,7 @@ public class AuthService : IAuthService
   private string GenerateJwtToken(Models.User user)
   {
     // Lê configurações JWT do appsettings.json
-    var jwtKey = _configuration["Jwt:Key"] ?? "HydroGuardSecretKey2026FIAP!";
+    var jwtKey = _configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key não configurada.");
     var jwtIssuer = _configuration["Jwt:Issuer"] ?? "HydroGuard";
     var jwtAudience = _configuration["Jwt:Audience"] ?? "HydroGuardUsers";
 

@@ -5,37 +5,30 @@ namespace HydroGuard.API.Data;
 
 /// <summary>
 /// Classe para popular o banco com dados iniciais (seed).
-/// Cria usuário admin e medidores/consumos de exemplo.
+/// Cria admin configurado externamente e, opcionalmente, dados demonstrativos.
 /// </summary>
 public static class DbSeeder
 {
   /// <summary>
-  /// Executa o seed de dados se o banco está vazio.
+  /// Inicializa usuários se ainda não existem. Dados demonstrativos são opcionais.
   /// </summary>
-  public static async Task SeedAsync(HydroGuardDbContext context)
+  public static async Task SeedAsync(HydroGuardDbContext context, string adminPassword, bool includeDemoData)
   {
     // Só faz seed se não existem usuários
     if (await context.Users.AnyAsync())
       return;
 
-    // Cria usuário admin (senha: admin123)
+    // Cria admin com senha fornecida externamente; não redefine usuários existentes.
     var admin = new User
     {
       Username = "admin",
-      PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123"),
+      PasswordHash = BCrypt.Net.BCrypt.HashPassword(adminPassword),
       Role = "Admin"
     };
 
-    // Cria usuário operador de exemplo
-    var operador = new User
-    {
-      Username = "operador",
-      PasswordHash = BCrypt.Net.BCrypt.HashPassword("operador123"),
-      Role = "Operador"
-    };
-
-    context.Users.AddRange(admin, operador);
+    context.Users.Add(admin);
     await context.SaveChangesAsync();
+    if (!includeDemoData) return;
 
     // Cria medidores de exemplo
     var medidor1 = new Medidor

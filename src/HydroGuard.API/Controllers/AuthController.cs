@@ -23,7 +23,7 @@ public class AuthController : ControllerBase
 
   /// <summary>
   /// Autentica usuário e retorna token JWT.
-  /// Usuário seed: admin / admin123
+  /// Usuário inicial: admin; senha fornecida por Bootstrap:AdminPassword.
   /// </summary>
   [HttpPost("login")]
   [AllowAnonymous] // Login não precisa de autenticação
