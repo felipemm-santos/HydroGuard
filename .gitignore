@@ -1,40 +1,13 @@
-## Build results
-[Dd]ebug/
-[Rr]elease/
-x64/
-x86/
-[Bb]in/
-[Oo]bj/
-[Ll]og/
-[Ll]ogs/
-
-## Visual Studio
+**/bin/
+**/obj/
 .vs/
-*.user
-*.suo
-
-## Rider
-.idea/
-
-## User-specific files
-*.rsuser
-
-## NuGet
-*.nupkg
-**/packages/*
-!**/packages/build/
-
-## Test results
-TestResults/
-*.trx
-
-## Docker
-.docker/
-
-## OS
-.DS_Store
-Thumbs.db
-
-## Environment
+.vscode/
 .env
-*.env
+.env.*
+!.env.example
+TestResults/
+evidence/*.log
+evidence/*.json
+evidence/*.trx
+__pycache__/
+*.zip

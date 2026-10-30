@@ -1,60 +1,51 @@
-# Docker Compose - HydroGuard
-# Orquestra API + SQL Server para execução completa do sistema
-
-version: '3.8'
-
 services:
-  # ===== SQL Server =====
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: hydroguard-sql
     environment:
-      # Senha do administrador SQL Server
-      - ACCEPT_EULA=Y
-      - MSSQL_SA_PASSWORD=HydroGuard@2026
-    ports:
-      # Porta 1433 exposta para acesso externo (opcional)
-      - "1433:1433"
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?Defina MSSQL_SA_PASSWORD}
+      MSSQL_PID: Express
     volumes:
-      # Persistência dos dados do banco
       - sqlserver_data:/var/opt/mssql
     networks:
-      - hydroguard-net
-  # Healthcheck para garantir que SQL está pronto antes da API
+      - database
+    restart: unless-stopped
     healthcheck:
-      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "HydroGuard@2026" -C -Q "SELECT 1" || exit 1
+      test: ["CMD-SHELL", '/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$${MSSQL_SA_PASSWORD}" -C -Q "SELECT 1" -b -o /dev/null || exit 1']
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 20
       start_period: 30s
-
-  # ===== API HydroGuard =====
   api:
+    image: ${API_IMAGE:-hydroguard:local}
     build:
       context: .
-      dockerfile: HydroGuard.API/Dockerfile
-    container_name: hydroguard-api
-    ports:
-      # API disponível em http://localhost:5000
-      - "5000:8080"
+      dockerfile: Dockerfile
+      args:
+        APP_REVISION: ${APP_REVISION:-local}
+        APP_SOURCE: ${APP_SOURCE:-}
     environment:
-      # Connection string apontando ao container SQL Server
-      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=HydroGuardDB;User Id=sa;Password=HydroGuard@2026;TrustServerCertificate=True;
-      - Jwt__Key=HydroGuardSecretKey2026FIAP!SuperSecure
-      - Jwt__Issuer=HydroGuard
-      - Jwt__Audience=HydroGuardUsers
-      - ASPNETCORE_ENVIRONMENT=Production
+      ASPNETCORE_ENVIRONMENT: ${APP_ENVIRONMENT:-Development}
+      ConnectionStrings__DefaultConnection: Server=sqlserver,1433;Database=HydroGuardDB;User Id=sa;Password=${MSSQL_SA_PASSWORD:?Defina MSSQL_SA_PASSWORD};TrustServerCertificate=True;
+      Jwt__Key: ${JWT_KEY:?Defina JWT_KEY}
+      Jwt__Issuer: HydroGuard
+      Jwt__Audience: HydroGuardUsers
+      Bootstrap__AdminPassword: ${ADMIN_PASSWORD:?Defina ADMIN_PASSWORD}
+      Bootstrap__SeedDemoData: ${SEED_DEMO_DATA:-false}
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${API_PORT:-5000}:8080"
+    networks:
+      - frontend
+      - database
     depends_on:
       sqlserver:
         condition: service_healthy
-    networks:
-      - hydroguard-net
-
-# ===== Volumes =====
+    restart: unless-stopped
 volumes:
   sqlserver_data:
-
-# ===== Rede =====
 networks:
-  hydroguard-net:
+  frontend:
     driver: bridge
+  database:
+    driver: bridge
+    internal: true
