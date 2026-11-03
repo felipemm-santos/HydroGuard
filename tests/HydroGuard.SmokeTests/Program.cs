@@ -24,7 +24,7 @@ try
     var options = new Dictionary<string, string>();
     for (int i = 1; i < args.Length; i += 2)
     {
-        if (i + 1 >= args.Length || args[i] is not ("--expected-environment" or "--expected-revision" or "--output"))
+        if (i + 1 >= args.Length || args[i] is not ("--expected-environment" or "--expected-revision"))
             throw new InvalidOperationException("Opções inválidas para o smoke.");
         options.Add(args[i], args[i + 1]);
     }
@@ -88,11 +88,7 @@ try
         revision,
         checks = new[] { "database_readiness", "frontend", "swagger", "unauthorized_401", "jwt_login", "medidores", "esg" }
     };
-    var output = options.GetValueOrDefault("--output", "evidence/smoke.json");
-    var outputPath = Path.GetFullPath(output);
-    Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
     var json = JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true });
-    await File.WriteAllTextAsync(outputPath, json + Environment.NewLine);
     Console.WriteLine(json);
     return 0;
 }

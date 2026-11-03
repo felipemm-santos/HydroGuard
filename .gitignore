@@ -11,3 +11,8 @@ evidence/*.json
 evidence/*.trx
 __pycache__/
 *.zip
+
+# Credenciais SSH e payload transitório de deploy
+*.pem
+*.key
+.deploy.env

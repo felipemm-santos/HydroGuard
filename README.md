@@ -2,6 +2,8 @@
 
 Sistema de monitoramento de consumo de água, cadastro de medidores, alertas de possíveis vazamentos e indicadores ESG. API ASP.NET Core 8, frontend HTML/CSS/JavaScript e SQL Server, com pipeline CI/CD completo (GitHub Actions), containerização com Docker e deploy automatizado em **staging** e **produção**.
 
+> Deploy na VM Azure: siga [o roteiro completo de configuração SSH, secrets e demonstração](docs/DEPLOY-AZURE.md). Não é necessário cadastrar self-hosted runners.
+
 ## Como executar localmente com Docker
 
 Pré-requisitos: Docker Engine/Docker Desktop com containers Linux e Docker Compose v2.24 ou superior; SDK .NET 8 para testes/smoke; Python 3.10+ apenas para a geração opcional do `.env`; host x86-64 com cerca de 4 GB de RAM livres para uma stack.
@@ -42,7 +44,7 @@ Não use `down --volumes` em staging/produção: isso apaga os dados. O pipeline
 ```bash
 dotnet restore HydroGuard.sln
 dotnet build HydroGuard.sln -c Release --no-restore
-dotnet test tests/HydroGuard.Tests/HydroGuard.Tests.csproj -c Release --no-build --logger "trx;LogFileName=tests.trx" --results-directory TestResults
+dotnet test tests/HydroGuard.Tests/HydroGuard.Tests.csproj -c Release --no-build --logger "console;verbosity=normal"
 ```
 
 O projeto `HydroGuard.Tests` tem 20 testes (xUnit, WebApplicationFactory e EF InMemory). Como o InMemory não valida SQL nem migrations, o pipeline também sobe um SQL Server real e executa um smoke test HTTP (`tests/HydroGuard.SmokeTests`), que verifica readiness, frontend, Swagger, 401 anônimo, login JWT e rotas da API.
@@ -53,11 +55,11 @@ Ferramenta: **GitHub Actions**. Registry: **GitHub Container Registry (GHCR)**. 
 
 | Etapa | Onde executa | O que valida / realiza |
 | --- | --- | --- |
-| build-test | Runner GitHub Ubuntu 24.04 | Restore, build Release e 20 testes xUnit, com arquivo TRX e cobertura |
+| build-test | Runner GitHub Ubuntu 24.04 | Restore, build Release e 20 testes xUnit, com resultados no log do Actions |
 | container | Runner GitHub Ubuntu 24.04 | Build Docker, Compose com SQL Server real, readiness, frontend, Swagger, 401 anônimo, login JWT, medidores e ESG |
 | publicação | Mesmo job `container`; somente em `main` | Publica a imagem com a tag do commit e obtém a referência imutável por digest SHA-256 |
-| deploy-staging | Runner próprio com label `hydroguard-staging` | Pull da imagem por digest, Compose, smoke test. Não recompila a imagem |
-| deploy-production | Runner próprio com label `hydroguard-production` | Executa após o staging aprovado, com exatamente o mesmo digest e o mesmo smoke test |
+| deploy-staging | Runner GitHub Ubuntu; comandos via SSH na VM Azure | Pull da imagem por digest, Compose, smoke test. Não recompila a imagem |
+| deploy-production | Runner GitHub Ubuntu; comandos via SSH na VM Azure | Executa após o staging aprovado, com exatamente o mesmo digest e o mesmo smoke test |
 
 ```mermaid
 flowchart TD
@@ -74,28 +76,21 @@ Pull requests executam apenas o CI e não publicam nem fazem deploy. Push em `ma
 
 ### Infraestrutura de staging e produção
 
-Os dois ambientes rodam em uma única VM no **Azure**:
+Os dois ambientes são hospedados em uma VM Azure. GitHub Actions conecta por SSH e envia os arquivos de deploy e smoke do commit, sem precisar clonar o repositório na VM. API e SQL Server permanecem ativos após o job; volumes são preservados entre releases.
 
-| Item | Valor |
+| Item | Configuração de referência |
 | --- | --- |
-| Tamanho | Standard D2s v4 (2 vCPU, 8 GiB de memória) |
-| Sistema | Ubuntu Server 24.04 LTS, x64 |
-| Runners | 2 runners do GitHub instalados como serviço: `runner-staging` (label `hydroguard-staging`) e `runner-production` (label `hydroguard-production`) |
-| Isolamento | Projetos Compose distintos (`hydroguard-staging` e `hydroguard-production`), cada um com seus containers, rede, volume e porta |
-| Portas | Staging na `5001`, produção na `5000`, ambas publicadas apenas em `127.0.0.1` da VM |
-| Acesso para demonstração | Túnel SSH (`ssh -L 5001:127.0.0.1:5001 -L 5000:127.0.0.1:5000 ...`) |
+| VM | `vm-hydroguard`, Ubuntu 24.04 x64, Standard B2as v2 (2 vCPUs, 8 GiB) |
+| Região / grupo | South Africa North / `rg-hydroguard` |
+| Deploy | Runner GitHub com SSH; sem agente self-hosted na VM |
+| Stacks | `hydroguard-staging` e `hydroguard-production`, com bancos e volumes independentes |
+| Portas | `127.0.0.1:5001` e `127.0.0.1:5000`, acessadas por túnel SSH |
 
-Configuração no GitHub (Settings > Environments), com valores diferentes em cada ambiente:
+Configure os environments `staging` e `production`, restritos a `main`. Cada um precisa dos secrets `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY`, `SSH_KNOWN_HOSTS`, `MSSQL_SA_PASSWORD`, `JWT_KEY` e `ADMIN_PASSWORD`. As informações SSH podem ser iguais; senhas e JWT devem ser diferentes. O GHCR usa `GITHUB_TOKEN` automático. `API_PORT` é opcional; `APP_URL` e `BIND_ADDRESS` não são utilizadas pelo workflow de deploy atual.
 
-| Tipo | Nome | staging | production |
-| --- | --- | --- | --- |
-| Secret | `MSSQL_SA_PASSWORD` | valor próprio | valor próprio |
-| Secret | `JWT_KEY` | valor próprio | valor próprio |
-| Secret | `ADMIN_PASSWORD` | valor próprio | valor próprio |
-| Variable | `API_PORT` | `5001` | `5000` |
-| Variable | `APP_URL` | `http://localhost:5001` | `http://localhost:5000` |
+O acesso SSH verifica a identidade da VM com uma chave de servidor confiável. A porta 22 deve aceitar o runner do GitHub; permitir somente o IP do seu computador não basta. A autenticação temporária do GHCR é removida ao final; nenhum pacote com credenciais é publicado. Os testes permanecem em C#; Python não é necessário para o pipeline ou deploy.
 
-Os dois environments aceitam deploy apenas da branch `main`. Nenhuma senha é versionada: tudo vem de GitHub Secrets. A autenticação no GHCR usa o `GITHUB_TOKEN` do próprio workflow.
+Consulte [docs/DEPLOY-AZURE.md](docs/DEPLOY-AZURE.md) para preparação da VM, chaves, rede, configuração dos secrets, execução, evidências e diagnóstico.
 
 ### Falhas e rollback
 
@@ -133,7 +128,9 @@ O `docker-compose.yml` orquestra a API e o SQL Server 2022 Express, com volume p
 
 Tag da imagem: `ghcr.io/victormiguel35/hydroguard:<commit>`. No deploy, a imagem é referenciada por digest imutável (`ghcr.io/victormiguel35/hydroguard@sha256:...`), e a mesma imagem é promovida de staging para produção.
 
-## Prints do funcionamento
+## Prints históricos da configuração anterior
+
+Estes prints são da versão anterior com runners próprios e outra VM. **Não comprovam a execução da versão atual por SSH.** Gere novas evidências após executar este workflow.
 
 Evidências da execução **#3** do workflow `HydroGuard CI-CD` (commit `53dc7d5`, branch `main`).
 
@@ -201,10 +198,10 @@ Os medidores cadastrados em staging não aparecem em produção, e vice-versa: c
 - SQL Server 2022 Express; BCrypt; autenticação JWT.
 - HTML, CSS e JavaScript; Swagger/OpenAPI.
 - xUnit, WebApplicationFactory, EF InMemory e Coverlet.
-- Docker, Docker Compose v2, GitHub Actions, GitHub Container Registry (GHCR) e runners próprios Linux x64.
-- Microsoft Azure (VM Ubuntu 24.04) como host de staging e produção.
+- Docker, Docker Compose v2, GitHub Actions, GitHub Container Registry (GHCR), runners hospedados e deploy remoto por SSH.
+- Microsoft Azure (VM Ubuntu 24.04 x64) como host de staging e produção.
 - C#/.NET 8 para todos os testes e para o smoke HTTP; Bash para o deploy.
-- Python apenas no gerador opcional de `.env`; não é usado pelo pipeline.
+- Python somente no gerador opcional de `.env`; não é usado no pipeline ou deploy.
 
 ## Estrutura do projeto
 
@@ -215,7 +212,7 @@ Os medidores cadastrados em staging não aparecem em produção, e vice-versa: c
 ├── .env.example
 ├── HydroGuard.sln
 ├── .github/workflows/ci-cd.yml
-├── scripts/            (deploy.sh, setup_env.py)
+├── scripts/            (deploy.sh, deploy-ssh.sh, deploy-remote.sh, setup_env.py)
 ├── src/HydroGuard.API/ (API, frontend em wwwroot, migrations)
 ├── tests/              (HydroGuard.Tests e HydroGuard.SmokeTests)
 └── docs/               (documentação técnica e prints)
@@ -227,29 +224,29 @@ Os medidores cadastrados em staging não aparecem em produção, e vice-versa: c
 | --- | --- |
 | Os 20 testes falharam na primeira execução do CI: a `Jwt:Key` configurada pela factory de testes chegava ao `Program.cs` vazia, porque `ConfigureAppConfiguration` é aplicado depois da leitura no hosting mínimo | Troca por `builder.UseSetting("Jwt:Key", ...)` na `HydroGuardWebApplicationFactory`, que é aplicada antes do `Program.cs` |
 | Tamanho de VM indisponível e cota zero em uma região do Azure (`QuotaExceeded`) | Escolha de uma VM com 2 vCPU e 8 GiB e cota liberada na assinatura |
-| Staging e produção sem servidores reais | VM única no Azure com dois runners próprios (labels distintos) e projetos Compose separados |
+| Hospedar ambientes sem instalar agentes do GitHub | VM única Azure acessada por SSH e projetos Compose separados |
 | Segredos fora do código em um repositório público | GitHub Environments com secrets e variables distintos por ambiente e deploy restrito à branch `main` |
 | API iniciando antes do SQL Server | Health check do SQL, `depends_on: service_healthy` e readiness da API com `up --wait` |
 | Staging e produção colidindo no mesmo host | Projetos Compose, portas, redes e volumes distintos |
 | Ambientes sem URL pública | Portas publicadas só em `127.0.0.1` e acesso por túnel SSH nas demonstrações |
 
-## Checklist de entrega
+## Checklist de entrega da versão por SSH
 
-- [x] Projeto compactado em ZIP com estrutura organizada e código-fonte completo.
-- [x] Dockerfile funcional na raiz.
-- [x] docker-compose.yml com API, banco, variáveis, volume e redes.
-- [x] Pipeline com etapas de build, teste e deploy em dois ambientes.
-- [x] README com instruções e prints.
-- [x] Build .NET e 20 testes xUnit executados e aprovados.
-- [x] Dockerfile/Compose executados com sucesso e imagem publicada no GHCR.
-- [x] Deploy realizado e comprovado em staging.
-- [x] Deploy realizado e comprovado em produção.
-- [x] Documentação técnica com evidências atualizada.
+- [x] Dockerfile, Compose, aplicação e testes C# organizados.
+- [x] Pipeline adaptado para deploy via SSH em VM Azure.
+- [x] Promoção do mesmo digest, resultados no log e persistência dos volumes.
+- [x] Roteiro de configuração atualizado em `docs/DEPLOY-AZURE.md`.
+- [ ] Confirmar SDK .NET 8 na VM e configurar os secrets SSH nos dois environments.
+- [ ] Validar a execução real dos quatro jobs desta versão em `main`.
+- [ ] Capturar prints dos testes, digest e resultados dos deploys.
+- [ ] Capturar novos prints e comprovar isolamento/persistência após redeploy.
+
+Os prints e resultados históricos não substituem a validação desta versão. Build, testes .NET, imagens e deploys devem ser confirmados no Actions.
 
 ## Referências técnicas
 
 - [GitHub Actions: controle de deployments](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments)
-- [GitHub: runners próprios](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/use-in-a-workflow)
+- [GitHub: secrets](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets)
 - [GitHub Container Registry](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
 - [Docker: ordem de inicialização](https://docs.docker.com/compose/how-tos/startup-order/)
 - [Microsoft: SQL Server em containers](https://learn.microsoft.com/en-us/sql/linux/quickstart-install-connect-docker?view=sql-server-ver16)
