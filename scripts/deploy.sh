@@ -17,14 +17,13 @@ fi
 export BIND_ADDRESS="${BIND_ADDRESS:-127.0.0.1}" SEED_DEMO_DATA=false
 dotnet run --project tests/HydroGuard.SmokeTests -c Release -- --validate-config
 project="hydroguard-$DEPLOY_ENV"
-mkdir -p evidence
-# Senhas nunca são gravadas em arquivos no runner. Variáveis do job vencem .env.
+# Credenciais recebidas pelo ambiente do processo; não salvar config resolvida.
+# O transporte SSH remove seu arquivo transitório antes de chamar este script.
 # Sem --volumes: volumes persistentes são preservados entre releases.
 docker compose -p "$project" config --quiet
 docker compose -p "$project" pull
 docker compose -p "$project" up -d --no-build --wait --wait-timeout 300
 dotnet run --project tests/HydroGuard.SmokeTests -c Release --no-build -- "http://127.0.0.1:$API_PORT" \
-  --expected-environment "$APP_ENVIRONMENT" --expected-revision "${APP_REVISION:?Defina APP_REVISION}" \
-  --output "evidence/$DEPLOY_ENV-smoke.json"
-docker compose -p "$project" ps > "evidence/$DEPLOY_ENV-compose.txt"
-printf 'Environment: %s\nImage: %s\nRevision: %s\n' "$DEPLOY_ENV" "$API_IMAGE" "$APP_REVISION" > "evidence/$DEPLOY_ENV-release.txt"
+  --expected-environment "$APP_ENVIRONMENT" --expected-revision "${APP_REVISION:?Defina APP_REVISION}"
+docker compose -p "$project" ps
+printf 'Environment: %s\nImage: %s\nRevision: %s\n' "$DEPLOY_ENV" "$API_IMAGE" "$APP_REVISION"
