@@ -128,7 +128,7 @@ O `docker-compose.yml` orquestra a API e o SQL Server 2022 Express, com volume p
 
 Tag da imagem: `ghcr.io/felipemm-santos/hydroguard:<commit>`. No deploy, a imagem é referenciada por digest imutável (`ghcr.io/felipemm-santos/hydroguard@sha256:...`), e a mesma imagem é promovida de staging para produção.
 
-## Prints históricos da configuração anterior
+## Prints
 
 Evidências da execução **#4** do workflow `HydroGuard CI-CD` (commit `b67d754`, branch `main`).
 
