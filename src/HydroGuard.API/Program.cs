@@ -21,8 +21,12 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // Configura Entity Framework com SQL Server
-builder.Services.AddDbContext<HydroGuardDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+// A factory de testes registra seu próprio provider InMemory.
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+  builder.Services.AddDbContext<HydroGuardDbContext>(options =>
+      options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+}
 
 // Configura autenticação JWT
 builder.Services.AddJwtAuthentication(builder.Configuration);
@@ -67,6 +71,20 @@ app.UseAuthorization();
 // Mapeia os controllers
 app.MapControllers();
 
+// Readiness inclui conexão real com o banco. Não expõe credenciais nem exceções.
+app.MapGet("/healthz", async (HydroGuardDbContext db, IConfiguration config, IWebHostEnvironment env) =>
+{
+  try
+  {
+    if (!await db.Database.CanConnectAsync())
+      return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+    return Results.Ok(new { status = "healthy", environment = env.EnvironmentName,
+      revision = config["HydroGuard:Revision"] ?? "local" });
+  }
+  catch { return Results.StatusCode(StatusCodes.Status503ServiceUnavailable); }
+}).AllowAnonymous();
+app.MapGet("/livez", () => Results.Ok(new { status = "alive" })).AllowAnonymous();
+
 // ===== INICIALIZAÇÃO DO BANCO DE DADOS =====
 // Em ambiente de testes (xUnit), o seed é feito pela WebApplicationFactory
 if (!app.Environment.IsEnvironment("Testing"))
@@ -78,7 +96,13 @@ if (!app.Environment.IsEnvironment("Testing"))
   await context.Database.MigrateAsync();
 
   // Popula dados iniciais (seed)
-  await DbSeeder.SeedAsync(context);
+  var adminPassword = builder.Configuration["Bootstrap:AdminPassword"];
+  if (string.IsNullOrWhiteSpace(adminPassword) || adminPassword.Length < 12)
+    throw new InvalidOperationException("Bootstrap:AdminPassword deve ter pelo menos 12 caracteres.");
+  var seedDemo = builder.Configuration.GetValue<bool>("Bootstrap:SeedDemoData");
+  if (app.Environment.IsProduction() && seedDemo)
+    throw new InvalidOperationException("Dados demonstrativos não são permitidos em Production.");
+  await DbSeeder.SeedAsync(context, adminPassword, seedDemo);
 }
 
 // Inicia a aplicação

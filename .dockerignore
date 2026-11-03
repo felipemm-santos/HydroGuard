@@ -1,0 +1,14 @@
+.git
+.github
+tests
+**/bin
+**/obj
+**/.vs
+.env
+.env.*
+docs
+evidence
+*.zip
+*.pdf
+scripts
+README.md

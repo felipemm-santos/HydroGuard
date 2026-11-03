@@ -2,8 +2,10 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
 using HydroGuard.API.Data;
 using HydroGuard.API.Models;
 using BCrypt.Net;
@@ -23,6 +25,8 @@ public class HydroGuardWebApplicationFactory : WebApplicationFactory<Program>
   {
     // Define ambiente de testes para não rodar migrations no Program.cs
     builder.UseEnvironment("Testing");
+    builder.UseSetting("Jwt:Key", "TestOnly-Key-At-Least-32-Bytes-Long-2026");
+    var databaseName = "HydroGuardTests-" + Guid.NewGuid().ToString("N");
 
     builder.ConfigureServices(services =>
     {
@@ -36,11 +40,11 @@ public class HydroGuardWebApplicationFactory : WebApplicationFactory<Program>
       // Registra DbContext com InMemory para testes
       services.AddDbContext<HydroGuardDbContext>(options =>
       {
-        options.UseInMemoryDatabase("HydroGuardTestDb");
+        options.UseInMemoryDatabase(databaseName);
       });
 
       // Popula dados de teste
-      var sp = services.BuildServiceProvider();
+      using var sp = services.BuildServiceProvider();
       using var scope = sp.CreateScope();
       var context = scope.ServiceProvider.GetRequiredService<HydroGuardDbContext>();
       context.Database.EnsureCreated();

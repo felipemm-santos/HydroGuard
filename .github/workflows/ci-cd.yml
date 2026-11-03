@@ -1,0 +1,198 @@
+name: HydroGuard CI-CD
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: hydroguard-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        env:
+          DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore
+        run: dotnet restore HydroGuard.sln
+      - name: Build Release
+        run: dotnet build HydroGuard.sln -c Release --no-restore
+      - name: Testes existentes e health checks
+        run: dotnet test tests/HydroGuard.Tests/HydroGuard.Tests.csproj -c Release --no-build --logger 'trx;LogFileName=tests.trx' --results-directory TestResults --collect:'XPlat Code Coverage'
+      - name: Publicar evidências de testes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults/
+          if-no-files-found: warn
+  container:
+    needs: build-test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.push.outputs.image }}
+    env:
+      APP_ENVIRONMENT: Staging
+      API_PORT: '5001'
+      BIND_ADDRESS: 127.0.0.1
+      SEED_DEMO_DATA: 'true'
+      APP_REVISION: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        env:
+          DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
+        with:
+          dotnet-version: '8.0.x'
+      - uses: docker/setup-buildx-action@v3
+      - name: Configurar imagem e segredos temporários de CI
+        shell: bash
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}:$GITHUB_SHA"
+          echo "API_IMAGE=$image" >> "$GITHUB_ENV"
+          sql="Hg!$(openssl rand -hex 20)"
+          jwt="$(openssl rand -hex 32)"
+          admin="Hg!$(openssl rand -hex 20)"
+          echo "::add-mask::$sql"
+          echo "::add-mask::$jwt"
+          echo "::add-mask::$admin"
+          printf 'MSSQL_SA_PASSWORD=%s\nJWT_KEY=%s\nADMIN_PASSWORD=%s\n' "$sql" "$jwt" "$admin" >> "$GITHUB_ENV"
+      - name: Build da imagem
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          load: true
+          push: false
+          platforms: linux/amd64
+          tags: ${{ env.API_IMAGE }}
+          build-args: |
+            APP_REVISION=${{ github.sha }}
+            APP_SOURCE=https://github.com/${{ github.repository }}
+      - name: Validar Compose, banco real e smoke HTTP
+        run: |
+          dotnet run --project tests/HydroGuard.SmokeTests -c Release -- --validate-config
+          docker compose -p hydroguard-ci config --quiet
+          docker compose -p hydroguard-ci up -d --no-build --wait --wait-timeout 300
+          dotnet run --project tests/HydroGuard.SmokeTests -c Release --no-build -- http://127.0.0.1:5001 --expected-environment Staging --expected-revision "$APP_REVISION" --output evidence/ci-smoke.json
+          docker compose -p hydroguard-ci ps > evidence/ci-compose.txt
+      - name: Login GHCR
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publicar imagem validada e obter digest
+        id: push
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          docker push "$API_IMAGE"
+          image="$(docker image inspect "$API_IMAGE" --format '{{index .RepoDigests 0}}')"
+          [[ "$image" =~ @sha256:[a-f0-9]{64}$ ]]
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          printf 'Image: %s\nRevision: %s\n' "$image" "$APP_REVISION" > evidence/ci-release.txt
+      - name: Evidências do container
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-evidence
+          path: evidence/
+          if-no-files-found: warn
+      - name: Remover apenas recursos efêmeros de CI
+        if: always()
+        run: docker compose -p hydroguard-ci down --volumes --remove-orphans
+  deploy-staging:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: container
+    runs-on: [self-hosted, linux, x64, hydroguard-staging]
+    timeout-minutes: 15
+    environment:
+      name: staging
+      url: ${{ vars.APP_URL }}
+    permissions:
+      contents: read
+      packages: read
+    env:
+      DEPLOY_ENV: staging
+      API_IMAGE: ${{ needs.container.outputs.image }}
+      APP_REVISION: ${{ github.sha }}
+      MSSQL_SA_PASSWORD: ${{ secrets.MSSQL_SA_PASSWORD }}
+      JWT_KEY: ${{ secrets.JWT_KEY }}
+      ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+      API_PORT: ${{ vars.API_PORT || '5001' }}
+      BIND_ADDRESS: ${{ vars.BIND_ADDRESS || '127.0.0.1' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        env:
+          DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
+        with:
+          dotnet-version: '8.0.x'
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Deploy staging e validação
+        run: bash scripts/deploy.sh
+      - name: Evidências staging
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-evidence
+          path: evidence/
+          if-no-files-found: warn
+  deploy-production:
+    needs: [container, deploy-staging]
+    runs-on: [self-hosted, linux, x64, hydroguard-production]
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: ${{ vars.APP_URL }}
+    permissions:
+      contents: read
+      packages: read
+    env:
+      DEPLOY_ENV: production
+      API_IMAGE: ${{ needs.container.outputs.image }}
+      APP_REVISION: ${{ github.sha }}
+      MSSQL_SA_PASSWORD: ${{ secrets.MSSQL_SA_PASSWORD }}
+      JWT_KEY: ${{ secrets.JWT_KEY }}
+      ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+      API_PORT: ${{ vars.API_PORT || '5000' }}
+      BIND_ADDRESS: ${{ vars.BIND_ADDRESS || '127.0.0.1' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        env:
+          DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
+        with:
+          dotnet-version: '8.0.x'
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Deploy produção da mesma imagem e validação
+        run: bash scripts/deploy.sh
+      - name: Evidências produção
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-evidence
+          path: evidence/
+          if-no-files-found: warn
