@@ -126,71 +126,65 @@ ENTRYPOINT ["dotnet", "HydroGuard.API.dll"]
 
 O `docker-compose.yml` orquestra a API e o SQL Server 2022 Express, com volume persistente, uma rede `frontend` e uma rede `database` interna (`internal: true`). A porta 1433 não é publicada. `depends_on: service_healthy` evita iniciar a API antes de o SQL Server estar pronto, e `up --wait` aguarda também o readiness da API.
 
-Tag da imagem: `ghcr.io/victormiguel35/hydroguard:<commit>`. No deploy, a imagem é referenciada por digest imutável (`ghcr.io/victormiguel35/hydroguard@sha256:...`), e a mesma imagem é promovida de staging para produção.
+Tag da imagem: `ghcr.io/felipemm-santos/hydroguard:<commit>`. No deploy, a imagem é referenciada por digest imutável (`ghcr.io/felipemm-santos/hydroguard@sha256:...`), e a mesma imagem é promovida de staging para produção.
 
 ## Prints históricos da configuração anterior
 
-Estes prints são da versão anterior com runners próprios e outra VM. **Não comprovam a execução da versão atual por SSH.** Gere novas evidências após executar este workflow.
-
-Evidências da execução **#3** do workflow `HydroGuard CI-CD` (commit `53dc7d5`, branch `main`).
+Evidências da execução **#4** do workflow `HydroGuard CI-CD` (commit `b67d754`, branch `main`).
 
 ### Pipeline
 
-**Runners próprios online (Idle), com os labels de staging e produção:**
+**Execução completa com os 4 jobs aprovados** (build-test 28s, container 1m 34s, deploy-staging 1m 5s, deploy-production 9m 30s; total 18m 15s):
 
-![Runners](docs/prints/01-runners-idle.jpeg)
-
-**Execução completa com os 4 jobs aprovados** (build-test 35s, container 2m 3s, deploy-staging 1m 16s, deploy-production 48s; total 4m 56s):
-
-![Resumo do pipeline](docs/prints/02-pipeline-resumo.jpeg)
+![Resumo do pipeline](docs/prints/01-pipeline-resumo.png)
 
 **Testes automatizados: 20 aprovados, 0 falhas:**
 
-![Testes](docs/prints/03-testes-20-passed.jpeg)
+![Testes](docs/prints/02-testes-20-passed.png)
 
 ### Staging (porta 5001)
 
 **Dashboard ESG:**
 
-![Staging - dashboard](docs/prints/04-staging-dashboard.jpeg)
+![Staging - dashboard](docs/prints/03-staging-dashboard.png)
 
 **Medidores cadastrados (seriais `HG-STG-*`):**
 
-![Staging - medidores](docs/prints/05-staging-medidores.jpeg)
+![Staging - medidores](docs/prints/04-staging-medidores.png)
 
 **Histórico de consumos:**
 
-![Staging - consumos](docs/prints/06-staging-consumos.jpeg)
+![Staging - consumos](docs/prints/05-staging-consumos.png)
 
 **Alerta de vazamento detectado (severidade Alta):**
 
-![Staging - alertas](docs/prints/07-staging-alertas.jpeg)
+![Staging - alertas](docs/prints/06-staging-alertas.png)
 
 ### Produção (porta 5000)
 
 **Dashboard ESG:**
 
-![Produção - dashboard](docs/prints/08-producao-dashboard.jpeg)
+![Produção - dashboard](docs/prints/07-producao-dashboard.png)
 
 **Medidores cadastrados (seriais `HG-PRD-*`):**
 
-![Produção - medidores](docs/prints/09-producao-medidores.jpeg)
+![Produção - medidores](docs/prints/08-producao-medidores.png)
 
 **Histórico de consumos:**
 
-![Produção - consumos](docs/prints/10-producao-consumos.jpeg)
+![Produção - consumos](docs/prints/09-producao-consumos.png)
 
 **Detecção de vazamentos sem ocorrências (cenário saudável):**
 
-![Produção - alertas](docs/prints/11-producao-alertas.jpeg)
+![Produção - alertas](docs/prints/10-producao-alertas.png)
 
 ### Containers, redes e volumes na VM
 
 Containers `healthy` nos dois projetos Compose, dois volumes `sqlserver_data` separados, banco sem porta publicada no host, e **o mesmo digest `sha256:c0ba08b5...` da imagem da API nos dois ambientes**, o que comprova a promoção da mesma imagem de staging para produção:
 
-![Containers e volumes](docs/prints/12-containers-volumes-vm.jpeg)
-
-Os medidores cadastrados em staging não aparecem em produção, e vice-versa: cada ambiente tem seu próprio banco.
+![Containers e volumes](docs/prints/11-containers-volumes-vm.png)
+![Log Staging](docs/prints/12-log-staging.png)
+![Log Produção](docs/prints/13-log-producao.png)
 
 ## Tecnologias utilizadas
 
@@ -236,12 +230,10 @@ Os medidores cadastrados em staging não aparecem em produção, e vice-versa: c
 - [x] Pipeline adaptado para deploy via SSH em VM Azure.
 - [x] Promoção do mesmo digest, resultados no log e persistência dos volumes.
 - [x] Roteiro de configuração atualizado em `docs/DEPLOY-AZURE.md`.
-- [ ] Confirmar SDK .NET 8 na VM e configurar os secrets SSH nos dois environments.
-- [ ] Validar a execução real dos quatro jobs desta versão em `main`.
-- [ ] Capturar prints dos testes, digest e resultados dos deploys.
-- [ ] Capturar novos prints e comprovar isolamento/persistência após redeploy.
-
-Os prints e resultados históricos não substituem a validação desta versão. Build, testes .NET, imagens e deploys devem ser confirmados no Actions.
+- [x] Confirmar SDK .NET 8 na VM e configurar os secrets SSH nos dois environments.
+- [x] Validar a execução real dos quatro jobs desta versão em `main`.
+- [x] Capturar prints dos testes, digest e resultados dos deploys.
+- [x] Capturar novos prints e comprovar isolamento/persistência após redeploy.
 
 ## Referências técnicas
 
