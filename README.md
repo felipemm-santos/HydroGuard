@@ -160,7 +160,7 @@ Tag da imagem: `ghcr.io/felipemm-santos/hydroguard:<commit>`. No deploy, a image
 
 ## Prints
 
-Evidências da execução **#4** do workflow `HydroGuard CI-CD` (commit `b67d754`, branch `main`).
+Evidências da execução **#9** do workflow `HydroGuard CI-CD` (commit `6bd1853`, branch `main`).
 
 ### Pipeline
 
@@ -241,18 +241,6 @@ Containers `healthy` nos dois projetos Compose, dois volumes `sqlserver_data` se
 ├── tests/              (HydroGuard.Tests e HydroGuard.SmokeTests)
 └── docs/               (documentação técnica e prints)
 ```
-
-## Desafios encontrados e soluções
-
-| Desafio | Solução |
-| --- | --- |
-| Os 20 testes falharam na primeira execução do CI: a `Jwt:Key` configurada pela factory de testes chegava ao `Program.cs` vazia, porque `ConfigureAppConfiguration` é aplicado depois da leitura no hosting mínimo | Troca por `builder.UseSetting("Jwt:Key", ...)` na `HydroGuardWebApplicationFactory`, que é aplicada antes do `Program.cs` |
-| Tamanho de VM indisponível e cota zero em uma região do Azure (`QuotaExceeded`) | Escolha de uma VM com 2 vCPU e 8 GiB e cota liberada na assinatura |
-| Hospedar ambientes sem instalar agentes do GitHub | VM única Azure acessada por SSH e projetos Compose separados |
-| Segredos fora do código em um repositório público | GitHub Environments com secrets e variables distintos por ambiente e deploy restrito à branch `main` |
-| API iniciando antes do SQL Server | Health check do SQL, `depends_on: service_healthy` e readiness da API com `up --wait` |
-| Staging e produção colidindo no mesmo host | Projetos Compose, portas, redes e volumes distintos |
-| Ambientes sem URL pública | Portas publicadas só em `127.0.0.1` e acesso por túnel SSH nas demonstrações |
 
 ## Checklist de entrega da versão por SSH
 
