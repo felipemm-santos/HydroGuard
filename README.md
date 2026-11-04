@@ -164,13 +164,13 @@ Evidências da execução **#4** do workflow `HydroGuard CI-CD` (commit `b67d754
 
 ### Pipeline
 
-**Execução completa com os 4 jobs aprovados** (build-test 28s, container 1m 34s, deploy-staging 1m 5s, deploy-production 9m 30s; total 18m 15s):
+**Execução completa com os 4 jobs aprovados** (build-test 35s, container 1m 59s, deploy-staging 34s, deploy-production 9m 58s; total 13m 18s):
 
 ![Resumo do pipeline](docs/prints/01-pipeline-resumo.png)
 
-**Testes automatizados: 20 aprovados, 0 falhas:**
+**Testes automatizados: 29 aprovados, 0 falhas:**
 
-![Testes](docs/prints/02-testes-20-passed.png)
+![Testes](docs/prints/02-testes-29-passed.png)
 
 ### Staging (porta 5001)
 
