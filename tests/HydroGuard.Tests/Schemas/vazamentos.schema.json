@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "medidorId",
+      "vazamentoDetectado",
+      "severidade",
+      "mensagem"
+    ],
+    "properties": {
+      "medidorId": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "vazamentoDetectado": {
+        "const": true
+      },
+      "severidade": {
+        "enum": [
+          "Baixa",
+          "Média",
+          "Alta"
+        ]
+      },
+      "mensagem": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "topMedidores",
+    "mediaPorPeriodo",
+    "alertasCriticos",
+    "projecaoFutura"
+  ],
+  "properties": {
+    "topMedidores": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "medidorId",
+          "nome",
+          "totalConsumo"
+        ],
+        "properties": {
+          "medidorId": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "nome": {
+            "type": "string",
+            "minLength": 1
+          },
+          "totalConsumo": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "mediaPorPeriodo": {
+      "type": "number",
+      "minimum": 0
+    },
+    "alertasCriticos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "medidorId",
+          "vazamentoDetectado",
+          "severidade",
+          "mensagem"
+        ],
+        "properties": {
+          "medidorId": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "vazamentoDetectado": {
+            "const": true
+          },
+          "severidade": {
+            "enum": [
+              "Baixa",
+              "Média",
+              "Alta"
+            ]
+          },
+          "mensagem": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "projecaoFutura": {
+      "type": "number"
+    }
+  }
+}

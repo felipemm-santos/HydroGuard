@@ -47,7 +47,37 @@ dotnet build HydroGuard.sln -c Release --no-restore
 dotnet test tests/HydroGuard.Tests/HydroGuard.Tests.csproj -c Release --no-build --logger "console;verbosity=normal"
 ```
 
-O projeto `HydroGuard.Tests` tem 20 testes (xUnit, WebApplicationFactory e EF InMemory). Como o InMemory não valida SQL nem migrations, o pipeline também sobe um SQL Server real e executa um smoke test HTTP (`tests/HydroGuard.SmokeTests`), que verifica readiness, frontend, Swagger, 401 anônimo, login JWT e rotas da API.
+Com o SDK .NET 8 instalado, também é possível executar a suíte com um comando no Git Bash:
+
+```bash
+bash scripts/test.sh
+```
+
+Para executar a mesma suíte em um container, na raiz do repositório:
+
+```bash
+docker build -f Dockerfile.test -t hydroguard-tests .
+docker run --rm hydroguard-tests
+```
+
+A suíte `HydroGuard.Tests` usa xUnit, Reqnroll, WebApplicationFactory e EF Core InMemory. Ela executa os testes de integração existentes, quatro cenários BDD e valida as respostas das dez operações HTTP com JSON Schema. Os dados e credenciais são exclusivos do ambiente de teste. O job `container` executa separadamente os smoke tests com SQL Server real.
+
+| Método e rota | Teste ou cenário | Schema de sucesso |
+| --- | --- | --- |
+| POST /api/auth/login | `Login_ContratoRetornaTokenAceitoPelaApi` | `login` |
+| GET /api/medidores | `ListarMedidores_ContratoRetornaPaginaComMedidorEsperado` | `medidores` |
+| POST /api/medidores | `CriarMedidor_ContratoRetornaDadosDoCadastro` | `medidor` |
+| GET /api/consumos | Registrar uma leitura válida | `consumos` |
+| POST /api/consumos | Registrar uma leitura válida | `consumo` |
+| GET /api/alertas/vazamentos | Alertar quando a leitura ultrapassa a média histórica em mais de 40% | `vazamentos` |
+| GET /api/esg/indicadores | `Indicadores_ContratoRetornaConsumoDoMes` | `esg` |
+| GET /api/relatorios/consumo | `Relatorio_ContratoRetornaMedidorNoRanking` | `relatorio` |
+| GET /healthz | `Readiness_ReturnsTestingEnvironmentWithoutAuthentication` | `healthz` |
+| GET /livez | `Liveness_RespondsWithoutAuthentication` | `livez` |
+
+Os arquivos `.feature` ficam em `tests/HydroGuard.Tests/Features` e os contratos em `tests/HydroGuard.Tests/Schemas`. As respostas JSON de leitura negativa (HTTP 400) e credenciais inválidas (HTTP 401) têm contratos próprios. O desafio JWT sem autenticação é verificado pelo status HTTP, pois a resposta não tem corpo JSON.
+
+Para registrar as evidências da atividade, abra um pull request para `main` e acesse **Checks → build-test → Testes de API, BDD e contratos JSON**. Capture os testes BDD, os testes de contrato e o resumo de aprovados e falhas. Inclua no PDF o link do run e o SHA exibido para identificar a revisão. O run da seção **Prints** é a referência histórica da suíte anterior.
 
 ## Pipeline CI/CD
 
@@ -55,7 +85,7 @@ Ferramenta: **GitHub Actions**. Registry: **GitHub Container Registry (GHCR)**. 
 
 | Etapa | Onde executa | O que valida / realiza |
 | --- | --- | --- |
-| build-test | Runner GitHub Ubuntu 24.04 | Restore, build Release e 20 testes xUnit, com resultados no log do Actions |
+| build-test | Runner GitHub Ubuntu 24.04 | Restore, build Release e testes de API, BDD e contratos JSON, com resultados no log do Actions |
 | container | Runner GitHub Ubuntu 24.04 | Build Docker, Compose com SQL Server real, readiness, frontend, Swagger, 401 anônimo, login JWT, medidores e ESG |
 | publicação | Mesmo job `container`; somente em `main` | Publica a imagem com a tag do commit e obtém a referência imutável por digest SHA-256 |
 | deploy-staging | Runner GitHub Ubuntu; comandos via SSH na VM Azure | Pull da imagem por digest, Compose, smoke test. Não recompila a imagem |

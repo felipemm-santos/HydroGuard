@@ -1,0 +1,12 @@
+**
+!src/
+!src/HydroGuard.API/
+!src/HydroGuard.API/**
+!tests/
+!tests/HydroGuard.Tests/
+!tests/HydroGuard.Tests/**
+**/bin
+**/obj
+**/.env
+**/.env.*
+**/*.feature.cs

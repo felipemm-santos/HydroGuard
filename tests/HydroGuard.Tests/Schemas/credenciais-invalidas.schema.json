@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "error",
+    "message"
+  ],
+  "properties": {
+    "error": {
+      "const": true
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
