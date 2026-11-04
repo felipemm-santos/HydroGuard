@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "page",
+    "pageSize",
+    "totalRecords",
+    "items"
+  ],
+  "properties": {
+    "page": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "pageSize": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "totalRecords": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "medidorId",
+          "litrosConsumidos",
+          "dataRegistro"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "medidorId": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "litrosConsumidos": {
+            "type": "number",
+            "minimum": 0
+          },
+          "dataRegistro": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  }
+}

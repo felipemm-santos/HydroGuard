@@ -1,22 +1,25 @@
-using System.Net;
 namespace HydroGuard.Tests.Controllers;
+
 public class HealthControllerTests : IClassFixture<HydroGuardWebApplicationFactory>
 {
-  private readonly HttpClient _client;
-  public HealthControllerTests(HydroGuardWebApplicationFactory factory) => _client = factory.CreateClient();
+  private readonly HttpClient client;
+
+  public HealthControllerTests(HydroGuardWebApplicationFactory factory) => client = factory.CreateClient();
+
   [Fact]
   public async Task Readiness_ReturnsTestingEnvironmentWithoutAuthentication()
   {
-    var response = await _client.GetAsync("/healthz");
-    Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-    var body = await response.Content.ReadAsStringAsync();
-    Assert.Contains("healthy", body);
-    Assert.Contains("Testing", body);
+    using var response = await client.GetAsync("/healthz");
+    var body = await ContractAssert.ReadAsync(response, HttpStatusCode.OK, "healthz");
+    Assert.Equal("healthy", body["status"]!.GetValue<string>());
+    Assert.Equal("Testing", body["environment"]!.GetValue<string>());
   }
+
   [Fact]
   public async Task Liveness_RespondsWithoutAuthentication()
   {
-    var response = await _client.GetAsync("/livez");
-    Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    using var response = await client.GetAsync("/livez");
+    var body = await ContractAssert.ReadAsync(response, HttpStatusCode.OK, "livez");
+    Assert.Equal("alive", body["status"]!.GetValue<string>());
   }
 }

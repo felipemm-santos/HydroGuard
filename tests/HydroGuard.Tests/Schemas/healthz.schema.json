@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "status",
+    "environment",
+    "revision"
+  ],
+  "properties": {
+    "status": {
+      "const": "healthy"
+    },
+    "environment": {
+      "type": "string",
+      "minLength": 1
+    },
+    "revision": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

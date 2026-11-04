@@ -16,3 +16,7 @@ __pycache__/
 *.pem
 *.key
 .deploy.env
+
+# Código gerado pelo Reqnroll durante o build
+*.feature.cs
+/tests/HydroGuard.Tests/Reqnroll/userid
